@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Camera, Activity, BarChart2, Brain, Zap, TrendingUp,
+    Camera, Activity, Brain, TrendingUp,
 } from 'lucide-react';
 import WebcamEmotion from '../components/WebcamEmotion';
 import SpeechEmotion from '../components/SpeechEmotion';
