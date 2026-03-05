@@ -13,8 +13,8 @@ MAITRI is a cutting-edge multimodal AI assistant designed to monitor and support
 
 ### Backend Setup
 1. `cd backend`
-2. `pip install -r requirements.txt`
-3. `python main.py`
+2. `pip install -r requirements.txt` (Already done for you)
+3. Run `start.bat` to launch the API.
 
 ### Frontend Setup
 1. `cd frontend`

@@ -2,8 +2,9 @@ fastapi
 uvicorn
 opencv-python
 numpy
+deepface
 librosa
-scikit-learn
-torch
-torchvision
-torchaudio
+sounddevice
+scipy
+pydantic
+tf_keras
