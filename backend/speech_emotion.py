@@ -72,7 +72,7 @@ def detect_speech_emotion():
         
         for p in predictions:
             mapped_label = emotion_map.get(p['label'], "neutral")
-            probs[mapped_label] += p['score']
+            probs[mapped_label] += float(p['score'])
             
         # Ensure it sums roughly to 1.0 (normalization) if 'exc' and 'hap' stacked
         total = sum(probs.values())

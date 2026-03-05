@@ -124,8 +124,8 @@ def detect_face_emotion(frame=None):
             
         probs = analysis.get('emotion', {})
         
-        # Convert DeepFace out-of-100 probabilities to 0-1 range
-        normalized_probs = {k: v / 100.0 for k, v in probs.items()}
+        # Convert DeepFace out-of-100 probabilities to 0-1 range, ensuring native Python floats
+        normalized_probs = {k: float(v) / 100.0 for k, v in probs.items()}
         
         # Temporal Smoothing: Store last 20 and compute mean
         history_buffer.append(normalized_probs)
