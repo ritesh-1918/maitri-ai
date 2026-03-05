@@ -14,13 +14,13 @@ MAITRI monitors your psychological and physical well-being by combining:
 | Modality | Technology | What it Detects |
 |---|---|---|
 | **Face** | DeepFace + OpenCV | 7 emotions: happy, sad, angry, fear, disgust, surprise, neutral |
-| **Speech** | Librosa + scikit-learn | 5 emotions: happy, sad, angry, fear, neutral |
-| **Fusion** | Rule-based engine | Stress levels: Normal → Low → Medium → High |
+| **Speech** | Wav2Vec2 (Hugging Face) | 5 emotions: happy, sad, angry, fear, neutral |
+| **Fusion** | Probabilistic Intensity Engine | Stress levels & Derived states (e.g. Joyful, Anxious) |
 
 ### 🔒 Privacy-First Edge Processing
 
-- **Zero cloud dependency** — all AI inference runs locally on your machine
-- **No data transmission** — webcam frames and audio are never uploaded
+- **Zero cloud dependency** — all AI inference runs locally or on your private inference backend
+- **No data transmission** — webcam frames and audio are never stored persistently
 - **No storage** — analysis is performed in-memory and discarded after display
 
 ---
@@ -30,13 +30,13 @@ MAITRI monitors your psychological and physical well-being by combining:
 ```
 MAITRI/
 ├── backend/
-│   ├── main.py               # FastAPI server with CORS
-│   ├── face_emotion.py        # DeepFace facial emotion detection
-│   ├── speech_emotion.py      # Librosa + sklearn speech emotion
-│   ├── fusion_engine.py       # Stress calculation engine
+│   ├── main.py               # FastAPI server with CORS (/combined_analysis)
+│   ├── face_emotion.py        # DeepFace facial emotion detection with temporal smoothing
+│   ├── speech_emotion.py      # Hugging Face transformer (wav2vec2-base-superb-er)
+│   ├── fusion_engine.py       # Stress calculation engine based on emotion intensity
 │   ├── requirements.txt       # Python dependencies
 │   └── utils/
-│       ├── audio_features.py  # Audio feature extraction
+│       ├── audio_features.py  # Microphone capture with silence trimming
 │       └── webcam_capture.py  # Webcam capture utility
 │
 ├── frontend/
@@ -47,9 +47,9 @@ MAITRI/
 │       │   └── Dashboard.js   # Main dashboard layout
 │       └── components/
 │           ├── Navbar.js      # Glass-morphism navbar
-│           ├── WebcamEmotion.js   # Live webcam + emotion badge
-│           ├── SpeechEmotion.js   # Audio recorder + visualizer
-│           ├── StressMeter.js     # Circular SVG gauge
+│           ├── WebcamEmotion.js   # Live webcam + emotion probabilities
+│           ├── SpeechEmotion.js   # Audio recorder + waveform visualizer
+│           ├── StressMeter.js     # Circular SVG gauge (Green/Yellow/Red)
 │           └── EmotionChart.js    # Time-series stress chart
 │
 ├── models/                    # Saved ML models
@@ -96,7 +96,8 @@ npm start
 | GET | `/` | Health check |
 | POST | `/face_emotion` | Analyze uploaded image for emotion |
 | POST | `/speech_emotion` | Record 3s audio & classify emotion |
-| POST | `/stress_score` | Combined multimodal stress analysis |
+| POST | `/stress_score` | (Legacy) Combined multimodal stress analysis |
+| POST | `/combined_analysis` | Concurrent multimodal fusion returning detailed probabilities |
 
 ---
 
@@ -105,8 +106,8 @@ npm start
 | Layer | Stack |
 |-------|-------|
 | **Backend** | FastAPI, uvicorn, Python 3 |
-| **Face AI** | DeepFace, OpenCV, TensorFlow |
-| **Speech AI** | Librosa, scikit-learn, sounddevice |
+| **Face AI** | DeepFace, OpenCV |
+| **Speech AI** | Hugging Face Transformers, Wav2Vec2 |
 | **Frontend** | React 18, Tailwind CSS, Chart.js, Framer Motion |
 | **Design** | Glassmorphism, dark theme, Inter font |
 

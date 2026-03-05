@@ -67,7 +67,7 @@ const WebcamEmotion = ({ onEmotionDetected }) => {
             setIsAnalyzing(true);
             try {
                 const res = await analyzeFaceEmotion(blob);
-                const detected = res.data?.emotion || 'neutral';
+                const detected = res.data?.dominant_emotion || 'neutral';
                 setEmotion(detected);
                 if (onEmotionDetected) onEmotionDetected(detected);
             } catch (e) {
@@ -128,8 +128,8 @@ const WebcamEmotion = ({ onEmotionDetected }) => {
             <button
                 onClick={isActive ? stopCamera : startCamera}
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm transition-all ${isActive
-                        ? 'bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30'
-                        : 'bg-indigo-500/20 border border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/30'
+                    ? 'bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30'
+                    : 'bg-indigo-500/20 border border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/30'
                     }`}
             >
                 {isActive ? <><CameraOff size={16} /> Stop Camera</> : <><Camera size={16} /> Start Camera</>}
