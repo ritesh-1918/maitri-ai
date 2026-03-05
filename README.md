@@ -1,5 +1,8 @@
 # MAITRI – Multimodal AI Assistant for Psychological & Physical Well-Being Monitoring
 
+**🌐 Live Dashboard:** [maitri-ai-dashboard-ritesh-1918.vercel.app](https://maitri-ai-dashboard-ritesh-1918.vercel.app)  
+**⚡ Backend API:** [ritesh19180-maitri-ai-backend.hf.space](https://ritesh19180-maitri-ai-backend.hf.space)
+
 **MAITRI** is a cutting-edge, privacy-first AI system that performs **real-time multimodal emotion detection** by fusing facial expression analysis and speech pattern recognition. All processing runs locally on the edge — no data ever leaves your device.
 
 ---
