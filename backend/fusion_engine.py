@@ -1,3 +1,35 @@
+def calculate_stress(face_emotion, speech_emotion):
+    """
+    Fuses face and speech emotions to determine stress level.
+    Rules:
+    - Angry OR Fear -> High Stress
+    - Sad -> Medium Stress
+    - Happy -> Low Stress
+    - Neutral -> Normal
+    """
+    # Normalize inputs to lowercase
+    face = face_emotion.lower() if face_emotion else ""
+    speech = speech_emotion.lower() if speech_emotion else ""
+    
+    # Priority 1: High Stress
+    if face in ["angry", "fear"] or speech in ["angry", "fear"]:
+        stress_level = "High Stress"
+    # Priority 2: Medium Stress
+    elif face == "sad" or speech == "sad":
+        stress_level = "Medium Stress"
+    # Priority 3: Low Stress
+    elif face == "happy" or speech == "happy":
+        stress_level = "Low Stress"
+    # Priority 4: Normal
+    else:
+        stress_level = "Normal"
+        
+    return {
+        "face_emotion": face_emotion,
+        "speech_emotion": speech_emotion,
+        "stress_level": stress_level
+    }
+
 class FusionEngine:
     def __init__(self):
         pass
@@ -6,15 +38,20 @@ class FusionEngine:
         face_emotion = face_results.get("emotion", "neutral")
         speech_emotion = speech_results.get("emotion", "neutral")
         
-        # Simple weighted fusion or mapping
-        stress_score = 0
-        if face_emotion in ["angry", "fear", "sad"]: stress_score += 50
-        if "stressed" in speech_emotion or "angry" in speech_emotion: stress_score += 50
-        
-        well_being_index = 100 - stress_score
-        
-        return {
-            "fused_emotion": face_emotion if face_emotion != "neutral" else speech_emotion,
-            "stress_level": "high" if stress_score >= 75 else "medium" if stress_score >= 40 else "low",
-            "well_being_score": well_being_index
-        }
+        return calculate_stress(face_emotion, speech_emotion)
+
+if __name__ == "__main__":
+    # Standalone test
+    test_cases = [
+        ("angry", "neutral"),
+        ("neutral", "fear"),
+        ("sad", "happy"),
+        ("happy", "happy"),
+        ("neutral", "neutral")
+    ]
+    
+    print("MAITRI Stress Analysis Test")
+    print("---------------------------")
+    for face, speech in test_cases:
+        result = calculate_stress(face, speech)
+        print(f"Face: {face:8} | Speech: {speech:8} | Result: {result['stress_level']}")
