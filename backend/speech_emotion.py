@@ -9,7 +9,25 @@ import scipy.io.wavfile as wav
 # Constants
 SAMPLING_RATE = 22050
 DURATION = 3  # seconds
-MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'speech_emotion_model.pkl')
+
+# ─── Download speech model from HuggingFace at import time ───
+_speech_model = None
+try:
+    from huggingface_hub import hf_hub_download
+    MODEL_PATH = hf_hub_download(
+        repo_id="ritesh19180/maitri-emotion-models",
+        filename="speech_emotion_model.pkl"
+    )
+    with open(MODEL_PATH, 'rb') as f:
+        _speech_model = pickle.load(f)
+    print("[MAITRI] Speech emotion model loaded from HuggingFace ✓")
+except Exception as e:
+    print(f"[MAITRI] HuggingFace model download failed, trying local: {e}")
+    LOCAL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'speech_emotion_model.pkl')
+    if os.path.exists(LOCAL_PATH):
+        with open(LOCAL_PATH, 'rb') as f:
+            _speech_model = pickle.load(f)
+        print("[MAITRI] Speech emotion model loaded from local ✓")
 
 def extract_features(audio_data, sr=SAMPLING_RATE):
     """
@@ -21,7 +39,7 @@ def extract_features(audio_data, sr=SAMPLING_RATE):
     
     # Spectrogram (Mel Spectrogram mean as a proxy)
     mel = librosa.feature.melspectrogram(y=audio_data, sr=sr)
-    mel_mean = np.mean(librosa.power_to_db(mel), axis=1)[:10] # Take first 10 for simplicity
+    mel_mean = np.mean(librosa.power_to_db(mel), axis=1)[:10]
     
     # Pitch (Yin algorithm)
     pitches = librosa.yin(audio_data, fmin=librosa.note_to_hz('C2'), fmax=librosa.note_to_hz('C7'))
@@ -38,28 +56,21 @@ def extract_features(audio_data, sr=SAMPLING_RATE):
 def detect_speech_emotion():
     """
     Records 3 seconds of audio, extracts features, and predicts emotion.
+    Uses the pre-loaded model (loaded once at startup).
     """
+    global _speech_model
     try:
         print("Recording 3 seconds of audio...")
         audio_data = sd.rec(int(DURATION * SAMPLING_RATE), samplerate=SAMPLING_RATE, channels=1)
-        sd.wait()  # Wait for recording to finish
+        sd.wait()
         audio_data = audio_data.flatten()
         
-        # Save temp file just in case or for verification
-        # wav.write("temp_recording.wav", SAMPLING_RATE, audio_data)
-        
-        # Extract features
         features = extract_features(audio_data)
         
-        # Load model
-        if not os.path.exists(MODEL_PATH):
-            return {"error": "Model file not found. Please run training script.", "emotion": "neutral"}
+        if _speech_model is None:
+            return {"error": "Model not loaded.", "emotion": "neutral"}
             
-        with open(MODEL_PATH, 'rb') as f:
-            model = pickle.load(f)
-            
-        # Predict
-        prediction = model.predict(features.reshape(1, -1))
+        prediction = _speech_model.predict(features.reshape(1, -1))
         emotion = prediction[0]
         
         return {"emotion": str(emotion)}
@@ -73,25 +84,21 @@ class SpeechEmotionDetector:
         pass
 
     def analyze(self, audio_file):
-        """
-        Mainly for API compatibility. 
-        Note: The API currently sends a file path, while detect_speech_emotion 
-        records directly. I'll update this to handle the provided file.
-        """
+        """For API compatibility — analyzes from a file path."""
+        global _speech_model
         try:
             audio_data, sr = librosa.load(audio_file, sr=SAMPLING_RATE)
             features = extract_features(audio_data, sr=sr)
             
-            with open(MODEL_PATH, 'rb') as f:
-                model = pickle.load(f)
+            if _speech_model is None:
+                return {"emotion": "neutral", "error": "Model not loaded.", "success": False}
             
-            prediction = model.predict(features.reshape(1, -1))
+            prediction = _speech_model.predict(features.reshape(1, -1))
             return {"emotion": str(prediction[0]), "success": True}
         except Exception as e:
             return {"emotion": "neutral", "error": str(e), "success": False}
 
 if __name__ == "__main__":
-    # Test loop
     print("MAITRI Speech Emotion Test")
     print("--------------------------")
     while True:
