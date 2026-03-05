@@ -1,31 +1,85 @@
 import React from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+    Chart as ChartJS,
+    CategoryScale, LinearScale, PointElement,
+    LineElement, BarElement, Title, Tooltip, Legend, Filler,
+} from 'chart.js';
+import { Line, Bar } from 'react-chartjs-2';
 
-const data = [
-    { name: '10am', score: 65 },
-    { name: '11am', score: 59 },
-    { name: '12pm', score: 80 },
-    { name: '1pm', score: 81 },
-    { name: '2pm', score: 56 },
-    { name: '3pm', score: 55 },
-    { name: '4pm', score: 40 },
-];
+ChartJS.register(
+    CategoryScale, LinearScale, PointElement,
+    LineElement, BarElement, Title, Tooltip, Legend, Filler
+);
 
-const EmotionChart = () => {
+const EmotionChart = ({ emotionHistory }) => {
+    const labels = emotionHistory.map((_, i) => `T-${emotionHistory.length - i}`).reverse();
+
+    // Encode emotions to numeric for charting
+    const EMOTION_SCORES = {
+        happy: 5, surprise: 4, neutral: 3, sad: 2, fear: 1, disgust: 1, angry: 0,
+    };
+    const faceData = emotionHistory.map(e => EMOTION_SCORES[e.face] ?? 3);
+    const speechData = emotionHistory.map(e => EMOTION_SCORES[e.speech] ?? 3);
+
+    const lineOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { labels: { color: '#94a3b8', font: { size: 12 } } },
+            tooltip: {
+                backgroundColor: '#1a2235',
+                titleColor: '#e2e8f0',
+                bodyColor: '#94a3b8',
+                borderColor: '#1e3a5f',
+                borderWidth: 1,
+            },
+        },
+        scales: {
+            x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
+            y: {
+                min: 0, max: 5,
+                ticks: {
+                    color: '#64748b',
+                    callback: v => ['angry', 'fear', 'sad', 'neutral', 'surprise', 'happy'][v] ?? v,
+                },
+                grid: { color: '#1e293b' },
+            },
+        },
+    };
+
+    const lineData = {
+        labels,
+        datasets: [
+            {
+                label: 'Face Emotion',
+                data: faceData,
+                borderColor: '#818cf8',
+                backgroundColor: 'rgba(129,140,248,0.15)',
+                fill: true, tension: 0.4, pointRadius: 5,
+                pointBackgroundColor: '#818cf8',
+            },
+            {
+                label: 'Speech Emotion',
+                data: speechData,
+                borderColor: '#a78bfa',
+                backgroundColor: 'rgba(167,139,250,0.10)',
+                fill: true, tension: 0.4, pointRadius: 5,
+                pointBackgroundColor: '#a78bfa',
+            },
+        ],
+    };
+
+    if (emotionHistory.length === 0) {
+        return (
+            <div className="h-48 flex items-center justify-center text-slate-500 text-sm">
+                No data yet — start analyzing to populate chart
+            </div>
+        );
+    }
+
     return (
-        <div className="h-64 mt-4">
-            <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="name" stroke="#94a3b8" />
-                    <YAxis stroke="#94a3b8" />
-                    <Tooltip
-                        contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }}
-                        itemStyle={{ color: '#818cf8' }}
-                    />
-                    <Line type="monotone" dataKey="score" stroke="#818cf8" strokeWidth={3} dot={{ fill: '#818cf8' }} />
-                </LineChart>
-            </ResponsiveContainer>
+        <div className="h-56">
+            <Line data={lineData} options={lineOptions} />
         </div>
     );
 };
