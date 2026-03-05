@@ -24,11 +24,11 @@ export const analyzeSpeechEmotion = () => {
     return api.post('/speech_emotion');
 };
 
-// ─── Combined Stress Score ───
-export const getStressScore = (imageBlob) => {
+// ─── Combined Multimodal Analysis ───
+export const getCombinedAnalysis = (imageBlob) => {
     const formData = new FormData();
     formData.append('file', imageBlob, 'frame.jpg');
-    return api.post('/stress_score', formData, {
+    return api.post('/combined_analysis', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     });
 };

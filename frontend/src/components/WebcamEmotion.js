@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, CameraOff, RefreshCw } from 'lucide-react';
-import { analyzeFaceEmotion } from '../api';
+import { getCombinedAnalysis } from '../api';
 
 const EMOTION_COLORS = {
     happy: 'text-green-400',
@@ -28,14 +28,19 @@ const EMOTION_EMOJI = {
     fear: '😨', disgust: '🤢', surprise: '😲', neutral: '😐',
 };
 
-const WebcamEmotion = ({ onEmotionDetected }) => {
+const WebcamEmotion = ({ onEmotionDetected, onAnalyzing }) => {
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const [isActive, setIsActive] = useState(false);
     const [emotion, setEmotion] = useState(null);
+    const [probs, setProbs] = useState(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [stream, setStream] = useState(null);
     const intervalRef = useRef(null);
+
+    useEffect(() => {
+        if (onAnalyzing) onAnalyzing(isAnalyzing);
+    }, [isAnalyzing, onAnalyzing]);
 
     const startCamera = async () => {
         try {
@@ -66,12 +71,14 @@ const WebcamEmotion = ({ onEmotionDetected }) => {
             if (!blob) return;
             setIsAnalyzing(true);
             try {
-                const res = await analyzeFaceEmotion(blob);
-                const detected = res.data?.dominant_emotion || 'neutral';
+                const res = await getCombinedAnalysis(blob);
+                const data = res.data || {};
+                const detected = data.face_emotion || 'neutral';
                 setEmotion(detected);
-                if (onEmotionDetected) onEmotionDetected(detected);
+                setProbs(data.face_probabilities || null);
+                if (onEmotionDetected) onEmotionDetected(data); // Pass full pipeline data upstream
             } catch (e) {
-                console.error('Face analyze error:', e);
+                console.error('Combined analysis error:', e);
             } finally {
                 setIsAnalyzing(false);
             }
@@ -80,7 +87,7 @@ const WebcamEmotion = ({ onEmotionDetected }) => {
 
     useEffect(() => {
         if (isActive) {
-            intervalRef.current = setInterval(captureAndAnalyze, 3000);
+            intervalRef.current = setInterval(captureAndAnalyze, 3000); // Triggers every 3s
         }
         return () => clearInterval(intervalRef.current);
     }, [isActive, captureAndAnalyze]);
@@ -97,29 +104,57 @@ const WebcamEmotion = ({ onEmotionDetected }) => {
                     </div>
                 )}
                 {isActive && isAnalyzing && (
-                    <div className="absolute top-3 right-3 bg-indigo-500/80 rounded-full px-2 py-1 text-xs flex items-center gap-1">
-                        <RefreshCw size={10} className="animate-spin" /> Analyzing
+                    <div className="absolute top-3 right-3 bg-indigo-500/80 rounded-full px-2 py-1 text-xs flex items-center gap-1 z-10">
+                        <RefreshCw size={10} className="animate-spin" /> Analyzing 3s frame
                     </div>
                 )}
             </div>
 
-            {/* Emotion Display */}
+            {/* Emotion Display & Probability Bars */}
             <AnimatePresence mode="wait">
                 {emotion && (
                     <motion.div
                         key={emotion}
-                        initial={{ opacity: 0, scale: 0.9 }}
+                        initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        className={`flex items-center gap-3 p-3 rounded-xl border ${EMOTION_BG[emotion] || EMOTION_BG.neutral}`}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="flex flex-col gap-3"
                     >
-                        <span className="text-3xl">{EMOTION_EMOJI[emotion] || '😐'}</span>
-                        <div>
-                            <p className="text-xs text-slate-400">Detected Emotion</p>
-                            <p className={`font-bold text-lg capitalize ${EMOTION_COLORS[emotion] || 'text-slate-300'}`}>
-                                {emotion}
-                            </p>
+                        {/* Dominant Emotion Pill */}
+                        <div className={`flex items-center gap-3 p-3 rounded-xl border ${EMOTION_BG[emotion] || EMOTION_BG.neutral}`}>
+                            <span className="text-3xl">{EMOTION_EMOJI[emotion] || '😐'}</span>
+                            <div>
+                                <p className="text-xs text-slate-400">Dominant Face Emotion</p>
+                                <p className={`font-bold text-lg capitalize ${EMOTION_COLORS[emotion] || 'text-slate-300'}`}>
+                                    {emotion}
+                                </p>
+                            </div>
                         </div>
+
+                        {/* Probability Bars */}
+                        {probs && (
+                            <div className="bg-slate-800/50 p-3 flex flex-col gap-2 rounded-xl border border-slate-700/50">
+                                {Object.entries(probs)
+                                    .sort(([, a], [, b]) => b - a)
+                                    .slice(0, 4) // Show top 4
+                                    .map(([emoName, val]) => (
+                                        <div key={emoName} className="flex items-center gap-2 text-xs">
+                                            <div className="w-16 text-slate-400 capitalize">{emoName}</div>
+                                            <div className="flex-1 h-2 rounded-full bg-slate-700 overflow-hidden">
+                                                <motion.div
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${Math.round(val * 100)}%` }}
+                                                    transition={{ duration: 0.4 }}
+                                                    className="h-full bg-indigo-400"
+                                                />
+                                            </div>
+                                            <div className="w-8 text-right font-mono text-slate-300">
+                                                {Math.round(val * 100)}%
+                                            </div>
+                                        </div>
+                                    ))}
+                            </div>
+                        )}
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -132,7 +167,7 @@ const WebcamEmotion = ({ onEmotionDetected }) => {
                     : 'bg-indigo-500/20 border border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/30'
                     }`}
             >
-                {isActive ? <><CameraOff size={16} /> Stop Camera</> : <><Camera size={16} /> Start Camera</>}
+                {isActive ? <><CameraOff size={16} /> Stop Tracking</> : <><Camera size={16} /> Start Auto-Tracking</>}
             </button>
         </div>
     );

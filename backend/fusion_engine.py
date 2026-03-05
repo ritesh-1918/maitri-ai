@@ -90,7 +90,9 @@ def calculate_stress(face_result, speech_result):
         "speech_confidence": round(speech_probs.get(speech_dom, 1.0), 2) if speech_probs else 1.0,
         "derived_state": derived_state,
         "stress_score": stress_score,
-        "stress_level": stress_level
+        "stress_level": stress_level,
+        "face_probabilities": face_probs,
+        "speech_probabilities": speech_probs
     }
 
 class FusionEngine:

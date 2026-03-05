@@ -1,51 +1,28 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, Loader2 } from 'lucide-react';
-import { analyzeSpeechEmotion } from '../api';
+import { MicOff } from 'lucide-react';
 
 const EMOTION_EMOJI = {
-    happy: '😊', sad: '😢', angry: '😠', fear: '😨', neutral: '😐',
+    happy: '😊', sad: '😢', angry: '😠', fear: '😨', neutral: '😐', unknown: '❓'
 };
 const EMOTION_COLORS = {
     happy: 'text-green-400', sad: 'text-blue-400', angry: 'text-red-400',
-    fear: 'text-purple-400', neutral: 'text-slate-400',
+    fear: 'text-purple-400', neutral: 'text-slate-400', unknown: 'text-slate-500'
 };
 const EMOTION_BG = {
     happy: 'bg-green-400/10 border-green-400/30', sad: 'bg-blue-400/10 border-blue-400/30',
     angry: 'bg-red-400/10 border-red-400/30', fear: 'bg-purple-400/10 border-purple-400/30',
-    neutral: 'bg-slate-400/10 border-slate-400/30',
+    neutral: 'bg-slate-400/10 border-slate-400/30', unknown: 'bg-slate-800 border-slate-700'
 };
 
-const SpeechEmotion = ({ onEmotionDetected }) => {
-    const [isRecording, setIsRecording] = useState(false);
-    const [emotion, setEmotion] = useState(null);
-    const [countdown, setCountdown] = useState(null);
-
-    const startRecording = async () => {
-        setIsRecording(true);
-        // Countdown timer mirroring the 3-sec backend recording
-        for (let i = 3; i >= 1; i--) {
-            setCountdown(i);
-            await new Promise(r => setTimeout(r, 1000));
-        }
-        setCountdown('Processing...');
-        try {
-            const res = await analyzeSpeechEmotion();
-            const detected = res.data?.emotion || 'neutral';
-            setEmotion(detected);
-            if (onEmotionDetected) onEmotionDetected(detected);
-        } catch (e) {
-            console.error('Speech analyze error:', e);
-        } finally {
-            setIsRecording(false);
-            setCountdown(null);
-        }
-    };
+const SpeechEmotion = ({ data, isRecording }) => {
+    const emotion = data?.speech_emotion;
+    const probs = data?.speech_probabilities;
 
     return (
         <div className="flex flex-col gap-4">
             {/* Recording Visualizer */}
-            <div className="relative h-32 rounded-xl bg-slate-900 border border-slate-700 flex flex-col items-center justify-center overflow-hidden">
+            <div className={`relative h-32 rounded-xl transition-colors border flex flex-col items-center justify-center overflow-hidden ${isRecording ? 'bg-slate-900 border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.2)]' : 'bg-black border-slate-700'}`}>
                 {isRecording ? (
                     <>
                         <motion.div
@@ -53,58 +30,90 @@ const SpeechEmotion = ({ onEmotionDetected }) => {
                             animate={{ opacity: [0.5, 1, 0.5] }}
                             transition={{ repeat: Infinity, duration: 1.5 }}
                         />
-                        <div className="flex items-end gap-1 h-12 z-10">
-                            {[...Array(10)].map((_, i) => (
+                        <div className="flex items-end gap-1.5 h-16 z-10 opacity-80">
+                            {[...Array(12)].map((_, i) => (
                                 <motion.div
                                     key={i}
-                                    className="w-2 bg-gradient-to-t from-indigo-500 to-purple-400 rounded-full"
-                                    animate={{ height: [8, Math.random() * 48 + 8, 8] }}
-                                    transition={{ repeat: Infinity, duration: 0.5 + Math.random() * 0.5, delay: i * 0.05 }}
+                                    className="w-2.5 bg-gradient-to-t from-indigo-500 to-purple-400 rounded-full"
+                                    animate={{ height: [10, Math.random() * 50 + 10, 10] }}
+                                    transition={{ repeat: Infinity, duration: 0.4 + Math.random() * 0.4, delay: i * 0.05 }}
                                 />
                             ))}
                         </div>
-                        <p className="mt-2 text-sm font-bold text-indigo-400 z-10">
-                            {typeof countdown === 'number' ? `Recording... ${countdown}s` : countdown}
+                        <p className="mt-3 text-xs font-bold text-purple-400 tracking-widest uppercase z-10 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" /> Listening
                         </p>
                     </>
                 ) : (
                     <>
-                        <MicOff size={32} className="text-slate-600 mb-1" />
-                        <p className="text-sm text-slate-500">Press record to start</p>
+                        <MicOff size={32} className="text-slate-600 mb-2 transition-transform duration-500" />
+                        <p className="text-xs text-slate-500 font-medium">Mic standby (Auto-syncs with Video)</p>
                     </>
                 )}
             </div>
 
-            {/* Emotion Display */}
+            {/* Emotion Display & Probability Bars */}
             <AnimatePresence mode="wait">
-                {emotion && (
+                {emotion && emotion !== 'unknown' && (
                     <motion.div
                         key={emotion}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
-                        className={`flex items-center gap-3 p-3 rounded-xl border ${EMOTION_BG[emotion] || EMOTION_BG.neutral}`}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="flex flex-col gap-3"
                     >
-                        <span className="text-3xl">{EMOTION_EMOJI[emotion] || '😐'}</span>
+                        {/* Dominant Emotion Pill */}
+                        <div className={`flex items-center gap-3 p-3 rounded-xl border ${EMOTION_BG[emotion] || EMOTION_BG.neutral}`}>
+                            <span className="text-3xl">{EMOTION_EMOJI[emotion] || '😐'}</span>
+                            <div>
+                                <p className="text-xs text-slate-400">Dominant Vocal Tone</p>
+                                <p className={`font-bold text-lg capitalize ${EMOTION_COLORS[emotion] || 'text-slate-300'}`}>
+                                    {emotion}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Probability Bars */}
+                        {probs && (
+                            <div className="bg-slate-800/50 p-3 flex flex-col gap-2 rounded-xl border border-slate-700/50">
+                                {Object.entries(probs)
+                                    .sort(([, a], [, b]) => b - a)
+                                    .slice(0, 4) // Show top 4
+                                    .map(([emoName, val]) => (
+                                        <div key={emoName} className="flex items-center gap-2 text-xs">
+                                            <div className="w-16 text-slate-400 capitalize">{emoName}</div>
+                                            <div className="flex-1 h-2 rounded-full bg-slate-700 overflow-hidden">
+                                                <motion.div
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${Math.round(val * 100)}%` }}
+                                                    transition={{ duration: 0.4 }}
+                                                    className="h-full bg-purple-400"
+                                                />
+                                            </div>
+                                            <div className="w-8 text-right font-mono text-slate-300">
+                                                {Math.round(val * 100)}%
+                                            </div>
+                                        </div>
+                                    ))}
+                            </div>
+                        )}
+                    </motion.div>
+                )}
+                {emotion === 'unknown' && !isRecording && (
+                    <motion.div
+                        key="unknown"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="flex items-center gap-3 p-3 rounded-xl border border-dashed border-slate-700 bg-slate-800/20"
+                    >
+                        <span className="text-2xl opacity-50">🔇</span>
                         <div>
-                            <p className="text-xs text-slate-400">Speech Emotion</p>
-                            <p className={`font-bold text-lg capitalize ${EMOTION_COLORS[emotion] || 'text-slate-300'}`}>{emotion}</p>
+                            <p className="text-sm font-medium text-slate-400">No Speech Detected</p>
+                            <p className="text-xs text-slate-500">Wait for audio capture</p>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
-
-            {/* Record Button */}
-            <button
-                onClick={startRecording}
-                disabled={isRecording}
-                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm transition-all ${isRecording
-                        ? 'bg-slate-700/50 border border-slate-600 text-slate-500 cursor-not-allowed'
-                        : 'bg-purple-500/20 border border-purple-500/40 text-purple-400 hover:bg-purple-500/30'
-                    }`}
-            >
-                {isRecording ? <><Loader2 size={16} className="animate-spin" /> Recording...</> : <><Mic size={16} /> Record 3s</>}
-            </button>
         </div>
     );
 };

@@ -160,6 +160,12 @@ const StressMeter = ({ stressData }) => {
                             </div>
                         </div>
                     ))}
+                    {stressData.derived_state && (
+                        <div className="col-span-2 bg-indigo-900/40 rounded-xl px-3 py-2 border border-indigo-500/30 flex items-center justify-between mt-1">
+                            <span className="text-xs text-indigo-300 font-medium">Cognitive State</span>
+                            <span className="text-sm font-bold text-indigo-100 capitalize tracking-wide">{stressData.derived_state}</span>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
     Camera, Activity, Brain, TrendingUp,
 } from 'lucide-react';
@@ -8,28 +8,7 @@ import SpeechEmotion from '../components/SpeechEmotion';
 import StressMeter from '../components/StressMeter';
 import EmotionChart from '../components/EmotionChart';
 
-const EMOTION_EMOJI = {
-    happy: '😊', sad: '😢', angry: '😠',
-    fear: '😨', disgust: '🤢', surprise: '😲', neutral: '😐',
-};
 
-const EMOTION_GRADIENT = {
-    happy: 'from-green-500/20 to-emerald-500/10 border-green-500/30',
-    sad: 'from-blue-500/20 to-indigo-500/10 border-blue-500/30',
-    angry: 'from-red-500/20 to-orange-500/10 border-red-500/30',
-    fear: 'from-purple-500/20 to-violet-500/10 border-purple-500/30',
-    disgust: 'from-yellow-500/20 to-amber-500/10 border-yellow-500/30',
-    surprise: 'from-cyan-500/20 to-sky-500/10 border-cyan-500/30',
-    neutral: 'from-slate-600/20 to-slate-700/10 border-slate-600/30',
-};
-
-const deriveStressLevel = (face, speech) => {
-    const high = ['angry', 'fear'];
-    if (high.includes(face) || high.includes(speech)) return 'High Stress';
-    if (face === 'sad' || speech === 'sad') return 'Medium Stress';
-    if (face === 'happy' || speech === 'happy') return 'Low Stress';
-    return 'Normal';
-};
 
 const SectionHeader = ({ icon: Icon, label, color }) => (
     <div className="flex items-center gap-2 mb-4">
@@ -45,25 +24,28 @@ const Dashboard = () => {
     const [speechEmotion, setSpeechEmotion] = useState(null);
     const [stressData, setStressData] = useState(null);
     const [emotionHistory, setEmotionHistory] = useState([]);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-    const handleFaceEmotion = useCallback((emotion) => {
-        setFaceEmotion(emotion);
-    }, []);
+    const handleCombinedData = useCallback((data) => {
+        setFaceEmotion(data.face_emotion);
+        setSpeechEmotion(data.speech_emotion);
 
-    const handleSpeechEmotion = useCallback((emotion) => {
-        setSpeechEmotion(emotion);
-        const face = faceEmotion || 'neutral';
         const updatedStress = {
-            face_emotion: face,
-            speech_emotion: emotion,
-            stress_level: deriveStressLevel(face, emotion),
+            face_emotion: data.face_emotion,
+            speech_emotion: data.speech_emotion,
+            stress_level: data.stress_level,
+            derived_state: data.derived_state,
+            face_probabilities: data.face_probabilities,
+            speech_probabilities: data.speech_probabilities,
         };
+
         setStressData(updatedStress);
+
         setEmotionHistory(prev => [
             ...prev.slice(-19),
-            { face, speech: emotion },
+            { face: data.face_emotion, speech: data.speech_emotion },
         ]);
-    }, [faceEmotion]);
+    }, []);
 
     const cardVariants = {
         hidden: { opacity: 0, y: 24 },
@@ -127,33 +109,7 @@ const Dashboard = () => {
                 >
                     <SectionHeader icon={Camera} label="Live Face Detection" color="bg-indigo-600" />
 
-                    <WebcamEmotion onEmotionDetected={handleFaceEmotion} />
-
-                    {/* Facial emotion badge */}
-                    <AnimatePresence mode="wait">
-                        {faceEmotion && (
-                            <motion.div
-                                key={faceEmotion}
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                className={`mt-4 flex items-center gap-4 p-4 rounded-xl border bg-gradient-to-br ${EMOTION_GRADIENT[faceEmotion] || EMOTION_GRADIENT.neutral
-                                    }`}
-                            >
-                                <span className="text-4xl">{EMOTION_EMOJI[faceEmotion] || '😐'}</span>
-                                <div>
-                                    <p className="text-xs text-slate-400 mb-0.5">Detected Facial Emotion</p>
-                                    <p className="text-xl font-extrabold capitalize text-white">{faceEmotion}</p>
-                                </div>
-                                <div className="ml-auto">
-                                    <span className="inline-flex items-center gap-1 text-xs bg-slate-800/70 px-2.5 py-1 rounded-full border border-slate-700 text-slate-300">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                                        Live
-                                    </span>
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                    <WebcamEmotion onEmotionDetected={handleCombinedData} onAnalyzing={setIsAnalyzing} />
                 </motion.div>
 
                 {/* ── RIGHT: Speech Emotion + Stress Meter ── */}
@@ -168,7 +124,7 @@ const Dashboard = () => {
                         className="glass rounded-2xl p-6"
                     >
                         <SectionHeader icon={Activity} label="Speech Emotion Analysis" color="bg-purple-600" />
-                        <SpeechEmotion onEmotionDetected={handleSpeechEmotion} />
+                        <SpeechEmotion data={stressData} isRecording={isAnalyzing} />
                     </motion.div>
 
                     {/* Stress Meter Card */}
