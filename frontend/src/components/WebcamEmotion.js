@@ -36,7 +36,6 @@ const WebcamEmotion = ({ onEmotionDetected, onAnalyzing }) => {
     const [probs, setProbs] = useState(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [stream, setStream] = useState(null);
-    const intervalRef = useRef(null);
     const [audioStream, setAudioStream] = useState(null);
     const mediaRecorderRef = useRef(null);
 
