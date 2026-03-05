@@ -8,3 +8,4 @@ sounddevice
 scipy
 pydantic
 tf_keras
+python-multipart
