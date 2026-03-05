@@ -34,6 +34,7 @@ const Dashboard = () => {
             face_emotion: data.face_emotion,
             speech_emotion: data.speech_emotion,
             stress_level: data.stress_level,
+            stress_score: data.stress_score,
             derived_state: data.derived_state,
             face_probabilities: data.face_probabilities,
             speech_probabilities: data.speech_probabilities,
