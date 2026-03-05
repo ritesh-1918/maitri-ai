@@ -37,6 +37,8 @@ const WebcamEmotion = ({ onEmotionDetected, onAnalyzing }) => {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [stream, setStream] = useState(null);
     const intervalRef = useRef(null);
+    const [audioStream, setAudioStream] = useState(null);
+    const mediaRecorderRef = useRef(null);
 
     useEffect(() => {
         if (onAnalyzing) onAnalyzing(isAnalyzing);
@@ -44,53 +46,90 @@ const WebcamEmotion = ({ onEmotionDetected, onAnalyzing }) => {
 
     const startCamera = async () => {
         try {
-            const s = await navigator.mediaDevices.getUserMedia({ video: true });
+            const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             if (videoRef.current) videoRef.current.srcObject = s;
             setStream(s);
+
+            // Extract the audio track to feed into the MediaRecorder
+            const audioTrack = s.getAudioTracks()[0];
+            const aStream = new MediaStream([audioTrack]);
+            setAudioStream(aStream);
+
             setIsActive(true);
         } catch (err) {
-            console.error('Camera error:', err);
+            console.error('Camera/Mic error:', err);
         }
     };
 
     const stopCamera = () => {
         if (stream) stream.getTracks().forEach(t => t.stop());
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+        }
         setStream(null);
+        setAudioStream(null);
         setIsActive(false);
-        clearInterval(intervalRef.current);
+        setIsAnalyzing(false);
     };
 
-    const captureAndAnalyze = useCallback(async () => {
-        if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        canvas.width = videoRef.current.videoWidth;
-        canvas.height = videoRef.current.videoHeight;
-        ctx.drawImage(videoRef.current, 0, 0);
-        canvas.toBlob(async (blob) => {
-            if (!blob) return;
-            setIsAnalyzing(true);
-            try {
-                const res = await getCombinedAnalysis(blob);
-                const data = res.data || {};
-                const detected = data.face_emotion || 'neutral';
-                setEmotion(detected);
-                setProbs(data.face_probabilities || null);
-                if (onEmotionDetected) onEmotionDetected(data); // Pass full pipeline data upstream
-            } catch (e) {
-                console.error('Combined analysis error:', e);
-            } finally {
-                setIsAnalyzing(false);
+    const runAnalysisLoop = useCallback(async () => {
+        if (!isActive || isAnalyzing || !audioStream || !videoRef.current || !canvasRef.current) return;
+
+        setIsAnalyzing(true);
+        const audioChunks = [];
+        const mediaRecorder = new MediaRecorder(audioStream);
+        mediaRecorderRef.current = mediaRecorder;
+
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+            // Audio is ready. Now snap the video frame.
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext('2d');
+            canvas.width = videoRef.current.videoWidth;
+            canvas.height = videoRef.current.videoHeight;
+            ctx.drawImage(videoRef.current, 0, 0);
+
+            canvas.toBlob(async (imageBlob) => {
+                if (!imageBlob) {
+                    setIsAnalyzing(false);
+                    return;
+                }
+
+                try {
+                    const res = await getCombinedAnalysis(imageBlob, audioBlob);
+                    const data = res.data || {};
+                    const detected = data.face_emotion || 'neutral';
+                    setEmotion(detected);
+                    setProbs(data.face_probabilities || null);
+                    if (onEmotionDetected) onEmotionDetected(data);
+                } catch (e) {
+                    console.error('Combined analysis error:', e);
+                } finally {
+                    setIsAnalyzing(false);
+                }
+            }, 'image/jpeg', 0.8);
+        };
+
+        // Record for 3 seconds
+        mediaRecorder.start();
+        setTimeout(() => {
+            if (mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
             }
-        }, 'image/jpeg', 0.8);
-    }, [isAnalyzing, onEmotionDetected]);
+        }, 3000);
+
+    }, [isActive, isAnalyzing, audioStream, onEmotionDetected]);
 
     useEffect(() => {
-        if (isActive) {
-            intervalRef.current = setInterval(captureAndAnalyze, 3000); // Triggers every 3s
+        if (isActive && !isAnalyzing && audioStream) {
+            runAnalysisLoop();
         }
-        return () => clearInterval(intervalRef.current);
-    }, [isActive, captureAndAnalyze]);
+    }, [isActive, isAnalyzing, audioStream, runAnalysisLoop]);
 
     return (
         <div className="flex flex-col gap-4">

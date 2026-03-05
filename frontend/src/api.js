@@ -25,9 +25,12 @@ export const analyzeSpeechEmotion = () => {
 };
 
 // ─── Combined Multimodal Analysis ───
-export const getCombinedAnalysis = (imageBlob) => {
+export const getCombinedAnalysis = (imageBlob, audioBlob) => {
     const formData = new FormData();
     formData.append('file', imageBlob, 'frame.jpg');
+    if (audioBlob) {
+        formData.append('audio_file', audioBlob, 'audio.wav');
+    }
     return api.post('/combined_analysis', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     });
