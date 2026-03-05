@@ -4,54 +4,67 @@ import uvicorn
 import cv2
 import numpy as np
 import io
-from face_emotion import FaceEmotionDetector
-from speech_emotion import SpeechEmotionDetector
-from fusion_engine import FusionEngine
+import os
+
+# Import our custom modules
+from face_emotion import detect_face_emotion
+from speech_emotion import detect_speech_emotion, SpeechEmotionDetector
+from fusion_engine import calculate_stress
 
 app = FastAPI(title="MAITRI API")
 
-# Enable CORS for frontend communication
+# Enable CORS for React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"], # In production, replace with specific frontend URL
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-face_detector = FaceEmotionDetector()
-speech_detector = SpeechEmotionDetector()
-fusion_engine = FusionEngine()
-
 @app.get("/")
 async def root():
-    return {"message": "Welcome to MAITRI - Multimodal AI Assistant"}
+    return {"message": "MAITRI Backend is running", "status": "online"}
 
-@app.post("/analyze/face")
-async def analyze_face(file: UploadFile = File(...)):
+@app.post("/face_emotion")
+async def face_emotion(file: UploadFile = File(...)):
+    """Receives an image and returns the dominant emotion."""
     contents = await file.read()
     nparr = np.frombuffer(contents, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    result = face_detector.analyze(frame)
+    
+    result = detect_face_emotion(frame)
     return result
 
-@app.post("/analyze/multimodal")
-async def analyze_multimodal(image: UploadFile = File(...), audio: UploadFile = File(...)):
-    # Handle image
-    img_contents = await image.read()
-    nparr = np.frombuffer(img_contents, np.uint8)
+@app.post("/speech_emotion")
+async def speech_emotion():
+    """Triggers a 3-second recording and returns the detected emotion."""
+    result = detect_speech_emotion()
+    return result
+
+@app.post("/stress_score")
+async def stress_score(file: UploadFile = File(...)):
+    """
+    Receives an image for face emotion, 
+    triggers speech recording, 
+    and returns combined stress analysis.
+    """
+    # 1. Face Emotion
+    contents = await file.read()
+    nparr = np.frombuffer(contents, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    face_result = face_detector.analyze(frame)
+    face_result = detect_face_emotion(frame)
     
-    # Handle audio (save temporarily for librosa)
-    audio_path = "temp_audio.wav"
-    with open(audio_path, "wb") as f:
-        f.write(await audio.read())
+    # 2. Speech Emotion (Triggers 3-second mic recording)
+    speech_result = detect_speech_emotion()
     
-    speech_result = speech_detector.analyze(audio_path)
+    # 3. Fusion
+    final_analysis = calculate_stress(
+        face_result.get("emotion", "neutral"), 
+        speech_result.get("emotion", "neutral")
+    )
     
-    # Fusion
-    final_result = fusion_engine.fuse(face_result, speech_result)
-    return final_result
+    return final_analysis
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
